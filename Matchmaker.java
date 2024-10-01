@@ -12,7 +12,7 @@ public class Matchmaker {
 
     public Matchmaker(String broadcastAddress, int udpPort, int tcpPort) {
         this.broadcastAddress = broadcastAddress;
-        this.udpPort = udpPort;  // UDP port that is specified by user
+        this.udpPort = udpPort;  // UDP port specified by user
         this.tcpPort = tcpPort;  // This is the randomly generated TCP port for game connection
     }
 
@@ -34,11 +34,11 @@ public class Matchmaker {
         if (connected) return;  // Stop broadcasting after the connection is established
 
         try (DatagramSocket udpSocket = new DatagramSocket()) {
-            udpSocket.setBroadcast(true);
             InetAddress broadcastAddr = InetAddress.getByName(broadcastAddress);
+            udpSocket.setBroadcast(true);
 
             // Send the random TCP port in the UDP message
-            String message = "NEW GAME:" + tcpPort;  // Add the random TCP port in the message
+            String message = "NEW GAME:" + tcpPort;
 
             // Send the message over UDP to the port specified by user
             DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), broadcastAddr, udpPort);
@@ -66,7 +66,7 @@ public class Matchmaker {
             udpSocket.setSoTimeout(TIMEOUT);  // Set the socket to listen for 30 seconds
             System.out.println("\n" + SEPARATOR);
             System.out.println("Listening for 'NEW GAME' messages on UDP port " + udpPort + " for " + TIMEOUT / 1000 + " seconds...");
-            udpSocket.receive(packet);
+            udpSocket.receive(packet);  // Receive the UDP message
 
             // Convert the message into a string and parse the TCP port
             String receivedMessage = new String(packet.getData(), 0, packet.getLength());
