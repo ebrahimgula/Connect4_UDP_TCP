@@ -105,7 +105,7 @@ public class Matchmaker {
             Socket socket = new Socket();
             socket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);  // 5-second timeout
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
-            System.out.println(SEPARATOR);  // Only print the separator here once
+            System.out.println("\n" + SEPARATOR);
 
             // Start the game logic as client (Player 2)
             GameLogic gameLogic = new GameLogic(socket, false);  // False means this is Player 2
@@ -124,9 +124,7 @@ public class Matchmaker {
             System.out.println("Waiting for opponent to connect on TCP port " + tcpPort + "...");
             Socket clientSocket = serverSocket.accept();  // Wait for an opponent to connect
             System.out.println("Opponent connected!");
-
-            // Only print the separator once
-            System.out.println(SEPARATOR);
+            System.out.println("\n" + SEPARATOR);
 
             // Start the game logic as server (Player 1)
             GameLogic gameLogic = new GameLogic(clientSocket, true);  // True means this is Player 1
