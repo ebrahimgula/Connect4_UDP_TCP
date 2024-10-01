@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.Scanner;
 
 public class GameLogic {
+    private static final String SEPARATOR = "════════════════════════ˋˏ-༻❁༺-ˎˊ════════════════════════";
+    
     private Socket socket;
     private boolean isPlayerOne;  // Determines if the player is Player 1 (true) or Player 2 (false)
     private char[][] board;
@@ -64,6 +66,7 @@ public class GameLogic {
     // Player's turn to make a move
     private void playerTurn(char playerChar) throws IOException {
         displayBoard();
+        System.out.println(SEPARATOR);
         System.out.print("Your turn. Enter column (1-7): ");
 
         int col;
@@ -83,8 +86,13 @@ public class GameLogic {
         // Check if the current player won
         if (checkWin(playerChar)) {
             displayBoard();
+            System.out.println(SEPARATOR);
             System.out.println("You win!");
             this.out.println("YOU WIN");
+            System.out.println(SEPARATOR);
+            System.out.println("Thanks for playing!");
+            System.out.println(SEPARATOR);
+            displayBanner();
             System.exit(0);
         } else {
             this.out.println("INSERT:" + (col + 1));
@@ -93,6 +101,7 @@ public class GameLogic {
 
     // Opponent's turn
     private void opponentTurn(char opponentChar) throws IOException {
+        System.out.println(SEPARATOR);
         System.out.println("Waiting for opponent's move...");
         String receivedMessage = this.in.readLine();
         if (receivedMessage == null) {
@@ -106,8 +115,13 @@ public class GameLogic {
                 makeMove(col, opponentChar);
                 if (checkWin(opponentChar)) {
                     displayBoard();
+                    System.out.println(SEPARATOR);
                     System.out.println("You lose!");
                     this.out.println("YOU LOSE");
+                    System.out.println(SEPARATOR);
+                    System.out.println("Thanks for playing!");
+                    System.out.println(SEPARATOR);
+                    displayBanner();
                     System.exit(0);
                 }
             } else {
@@ -117,7 +131,12 @@ public class GameLogic {
             }
         } else if (receivedMessage.equals("YOU WIN")) {
             displayBoard();
+            System.out.println(SEPARATOR);
             System.out.println("You lose!");
+            System.out.println(SEPARATOR);
+            System.out.println("Thanks for playing!");
+            System.out.println(SEPARATOR);
+            displayBanner();
             System.exit(0);
         } else if (receivedMessage.equals("ERROR")) {
             System.out.println("Received 'ERROR' from opponent. Exiting.");
@@ -203,8 +222,13 @@ public class GameLogic {
             }
         }
         displayBoard();
+        System.out.println(SEPARATOR);
         System.out.println("The game is a draw!");
         this.out.println("DRAW");
+        System.out.println(SEPARATOR);
+        System.out.println("Thanks for playing!");
+        System.out.println(SEPARATOR);
+        displayBanner();
         System.exit(0);
         return true;
     }
@@ -220,5 +244,20 @@ public class GameLogic {
             System.out.println();
         }
         System.out.println("  1   2   3   4   5   6   7 \n");
+    }
+
+    // Banner to display after the game ends
+    private void displayBanner() {
+        System.out.println("                                                                                              ");
+        System.out.println("  .g8\"\"\"bgd   .g8\"\"8q. `7MN.   `7MF`7MN.   `7MF`7MM\"\"\"YMM    .g8\"\"\"bgd MMP\"\"MM\"\"YMM      ");
+        System.out.println(".dP'     `M .dP'    `YM. MMN.    M   MMN.    M   MM    `7  .dP'     `M P'   MM   `7      ");
+        System.out.println("dM'       ` dM'      `MM M YMb   M   M YMb   M   MM   d    dM'       `      MM      ,AM  ");
+        System.out.println("MM          MM        MM M  `MN. M   M  `MN. M   MMmmMM    MM               MM     AVMM  ");
+        System.out.println("MM.         MM.      ,MP M   `MM.M   M   `MM.M   MM   Y  , MM.              MM   ,W' MM  ");
+        System.out.println("`Mb.     ,' `Mb.    ,dP' M     YMM   M     YMM   MM     ,M `Mb.     ,'      MM ,W'   MM  ");
+        System.out.println("  `\"bmmmd'    `\"bmmd\"' .JML.    YM .JML.    YM .JMMmmmmMMM   `\"bmmmd'     .JMMLAmmmmmMMmm");
+        System.out.println("                                                                                     MM  ");
+        System.out.println("                                                                                     MM  ");
+        System.out.println(SEPARATOR);
     }
 }
