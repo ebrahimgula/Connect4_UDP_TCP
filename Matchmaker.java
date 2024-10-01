@@ -22,7 +22,6 @@ public class Matchmaker {
         System.out.println("Searching for opponents...");
 
         try {
-            // Listen for incoming "NEW GAME" messages for 30 seconds, or send a "NEW GAME" message if none are received
             listenForUdpMessage();
         } catch (Exception e) {
             e.printStackTrace();
@@ -37,18 +36,14 @@ public class Matchmaker {
             InetAddress broadcastAddr = InetAddress.getByName(broadcastAddress);
             udpSocket.setBroadcast(true);
 
-            // Send the random TCP port in the UDP message
             String message = "NEW GAME:" + tcpPort;
 
-            // Send the message over UDP to the port specified by user
             DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), broadcastAddr, udpPort);
             udpSocket.send(packet);
 
-            // Notify what is being sent
             System.out.println("\n" + SEPARATOR);
             System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort + " to " + broadcastAddress + ":" + udpPort);
 
-            // Start listening for a connection on the TCP port as Player 1 (the server)
             startTcpServer();
         } catch (IOException e) {
             e.printStackTrace();
@@ -57,31 +52,30 @@ public class Matchmaker {
 
     // Listen for UDP broadcast messages to connect to the opponent
     public void listenForUdpMessage() throws IOException {
-        if (connected) return;  // Stop listening after the connection is established
+        if (connected) return;
 
-        try (DatagramSocket udpSocket = new DatagramSocket(udpPort)) {  // Listen on the UDP port
+        try (DatagramSocket udpSocket = new DatagramSocket(udpPort)) {  
             byte[] buffer = new byte[256];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
-            udpSocket.setSoTimeout(TIMEOUT);  // Set the socket to listen for 30 seconds
+            udpSocket.setSoTimeout(TIMEOUT);  
             System.out.println("\n" + SEPARATOR);
             System.out.println("Listening for 'NEW GAME' messages on UDP port " + udpPort + " for " + TIMEOUT / 1000 + " seconds...");
-            udpSocket.receive(packet);  // Receive the UDP message
+            udpSocket.receive(packet);
 
-            // Convert the message into a string and parse the TCP port
             String receivedMessage = new String(packet.getData(), 0, packet.getLength());
             System.out.println("Received message: " + receivedMessage);
 
             if (receivedMessage.startsWith("NEW GAME:")) {
                 String[] parts = receivedMessage.split(":");
                 if (parts.length == 2) {
-                    int opponentTcpPort = Integer.parseInt(parts[1]);  // Extract the TCP port from the message
+                    int opponentTcpPort = Integer.parseInt(parts[1]);  
                     String opponentIp = packet.getAddress().getHostAddress();
 
                     System.out.println("Connecting to opponent at " + opponentIp + ":" + opponentTcpPort);
-                    startGameAsClient(opponentIp, opponentTcpPort);  // Act as client and connect to the opponent
+                    startGameAsClient(opponentIp, opponentTcpPort);  
 
-                    connected = true;  // Mark the connection as established
+                    connected = true;  
                 } else {
                     System.out.println("Invalid 'NEW GAME' message format.");
                 }
@@ -89,7 +83,6 @@ public class Matchmaker {
                 System.out.println("Invalid message received: " + receivedMessage);
             }
         } catch (SocketTimeoutException e) {
-            // No "NEW GAME" message received within the timeout, so Player 1 broadcasts the game
             System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds. Broadcasting...");
             sendUdpBroadcast();
         } catch (IOException e) {
@@ -99,16 +92,16 @@ public class Matchmaker {
 
     // Method to start the game as the client and connect to the opponent
     public void startGameAsClient(String opponentIp, int tcpPort) {
-        if (connected) return;  // Do not try to reconnect if already connected
+        if (connected) return;  
 
         try {
             Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);  // 5-second timeout
+            socket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);  
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
-            System.out.println(SEPARATOR);  // Only print the separator here once
 
+            // Removed duplicate separator print here
             // Start the game logic as client (Player 2)
-            GameLogic gameLogic = new GameLogic(socket, false);  // False means this is Player 2
+            GameLogic gameLogic = new GameLogic(socket, false);  
             gameLogic.start();
         } catch (IOException e) {
             e.printStackTrace();
@@ -118,18 +111,15 @@ public class Matchmaker {
 
     // Method to start a TCP server and listen for incoming connections
     public void startTcpServer() {
-        if (connected) return;  // Do not start a server if already connected
+        if (connected) return;  
 
         try (ServerSocket serverSocket = new ServerSocket(tcpPort)) {
             System.out.println("Waiting for opponent to connect on TCP port " + tcpPort + "...");
-            Socket clientSocket = serverSocket.accept();  // Wait for an opponent to connect
+            Socket clientSocket = serverSocket.accept();  
             System.out.println("Opponent connected!");
 
-            // Only print the separator once
-            System.out.println(SEPARATOR);
-
-            // Start the game logic as server (Player 1)
-            GameLogic gameLogic = new GameLogic(clientSocket, true);  // True means this is Player 1
+            // Removed duplicate separator print here
+            GameLogic gameLogic = new GameLogic(clientSocket, true);  
             gameLogic.start();
         } catch (IOException e) {
             e.printStackTrace();

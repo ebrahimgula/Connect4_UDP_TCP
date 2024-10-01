@@ -1,13 +1,14 @@
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.Scanner;
 
 public class GameLogic {
-    private static final String SEPARATOR = "════════════════════════ˋˏ-༻❁༺-ˎˊ════════════════════════";
-
     private Socket socket;
-    private boolean isPlayerOne;
+    private boolean isPlayerOne;  // Determines if the player is Player 1 (true) or Player 2 (false)
     private char[][] board;
     private BufferedReader in;
     private PrintWriter out;
@@ -17,150 +18,143 @@ public class GameLogic {
         this.socket = socket;
         this.isPlayerOne = isPlayerOne;
         this.board = new char[6][7];
-        this.scanner = new Scanner(System.in);
-        initializeBoard();
-    }
-
-    private void initializeBoard() {
-        for (int i = 0; i < board.length; i++) {
-            Arrays.fill(board[i], '.');
+        // Initialize the game board with empty slots
+        for (char[] row : board) {
+            Arrays.fill(row, '.');
         }
+        this.scanner = new Scanner(System.in);
     }
 
     public void start() {
         try {
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
+            this.in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+            this.out = new PrintWriter(this.socket.getOutputStream(), true);
+            boolean gameEnded = false;
 
-            boolean gameOver = false;
-
-            if (isPlayerOne) {
-                System.out.println(SEPARATOR);
-                System.out.println("You are Player 1 (X). You go first.");
-                System.out.println(SEPARATOR);
-
-                while (!gameOver) {
+            // Game loop
+            while (!gameEnded) {
+                if (this.isPlayerOne) {
                     playerTurn('X');
-                    gameOver = checkWin('X') || checkDraw();
-                    if (gameOver) break;
-
+                    gameEnded = checkWin('X') || checkDraw();
+                    if (gameEnded) {
+                        break;
+                    }
                     opponentTurn('O');
-                    gameOver = checkWin('O') || checkDraw();
-                }
-            } else {
-                System.out.println(SEPARATOR);
-                System.out.println("You are Player 2 (O). Waiting for Player 1 to make the first move.");
-                System.out.println(SEPARATOR);
-
-                while (!gameOver) {
+                    gameEnded = checkWin('O') || checkDraw();
+                } else {
                     opponentTurn('X');
-                    gameOver = checkWin('X') || checkDraw();
-                    if (gameOver) break;
-
+                    gameEnded = checkWin('X') || checkDraw();
+                    if (gameEnded) {
+                        break;
+                    }
                     playerTurn('O');
-                    gameOver = checkWin('O') || checkDraw();
+                    gameEnded = checkWin('O') || checkDraw();
                 }
             }
 
-            socket.close();  // Close the socket once the game is over
+            this.socket.close();
         } catch (IOException e) {
-            System.out.println("Network error: " + e.getMessage());
+            System.out.println("ERROR: Connection issue.");
+            this.out.println("ERROR");
             e.printStackTrace();
+            System.exit(1);
         }
     }
 
-    private void playerTurn(char playerSymbol) throws IOException {
+    // Player's turn to make a move
+    private void playerTurn(char playerChar) throws IOException {
         displayBoard();
-        System.out.println(SEPARATOR);
-        System.out.print("Your turn (Player " + (playerSymbol == 'X' ? "1" : "2") + "). Enter column (1-7): ");
+        System.out.print("Your turn. Enter column (1-7): ");
 
-        int column;
+        int col;
         while (true) {
             try {
-                column = Integer.parseInt(scanner.nextLine()) - 1;  // Column input (1-7)
-                if (isValidMove(column)) {
-                    makeMove(column, playerSymbol);
+                col = Integer.parseInt(this.scanner.nextLine()) - 1;
+                if (isValidMove(col)) {
+                    makeMove(col, playerChar);
                     break;
                 }
                 System.out.print("Invalid move. Try again: ");
             } catch (NumberFormatException e) {
-                System.out.print("Invalid input. Enter a valid column number (1-7): ");
+                System.out.print("Please enter a valid column number (1-7): ");
             }
         }
 
-        displayBoard();
-        out.println("INSERT:" + (column + 1));  // Send the column to the opponent
-
-        if (checkWin(playerSymbol)) {
-            out.println("YOU WIN");
-            System.out.println(SEPARATOR);
-            System.out.println("Congratulations, Player " + (playerSymbol == 'X' ? "1" : "2") + ", you win!");
-            System.out.println(SEPARATOR);
+        // Check if the current player won
+        if (checkWin(playerChar)) {
+            displayBoard();
+            System.out.println("You win!");
+            this.out.println("YOU WIN");
             System.exit(0);
+        } else {
+            this.out.println("INSERT:" + (col + 1));
         }
     }
 
-    private void opponentTurn(char opponentSymbol) throws IOException {
+    // Opponent's turn
+    private void opponentTurn(char opponentChar) throws IOException {
         System.out.println("Waiting for opponent's move...");
-        String message = in.readLine();
-
-        if (message == null) {
-            System.out.println("Opponent disconnected. Ending game.");
+        String receivedMessage = this.in.readLine();
+        if (receivedMessage == null) {
+            System.out.println("Opponent disconnected.");
             System.exit(0);
         }
 
-        if (message.startsWith("INSERT:")) {
-            try {
-                int column = Integer.parseInt(message.split(":")[1]) - 1;
-                if (isValidMove(column)) {
-                    makeMove(column, opponentSymbol);
+        if (receivedMessage.startsWith("INSERT:")) {
+            int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
+            if (isValidMove(col)) {
+                makeMove(col, opponentChar);
+                if (checkWin(opponentChar)) {
                     displayBoard();
-                } else {
-                    System.out.println("Received invalid move from opponent.");
-                    out.println("ERROR");
-                    System.exit(1);
+                    System.out.println("You lose!");
+                    this.out.println("YOU LOSE");
+                    System.exit(0);
                 }
-            } catch (NumberFormatException e) {
-                System.out.println("Corrupted move received. Exiting.");
+            } else {
+                System.out.println("ERROR");
+                this.out.println("ERROR");
                 System.exit(1);
             }
-        } else if (message.equals("YOU WIN")) {
+        } else if (receivedMessage.equals("YOU WIN")) {
             displayBoard();
-            System.out.println(SEPARATOR);
-            System.out.println("You lose! Opponent won.");
-            System.out.println(SEPARATOR);
+            System.out.println("You lose!");
             System.exit(0);
-        } else if (message.equals("ERROR")) {
-            System.out.println("Opponent encountered an error. Exiting game.");
+        } else if (receivedMessage.equals("ERROR")) {
+            System.out.println("Received 'ERROR' from opponent. Exiting.");
             System.exit(1);
         } else {
-            System.out.println("Invalid message received. Exiting.");
+            System.out.println("ERROR");
+            this.out.println("ERROR");
             System.exit(1);
         }
     }
 
-    private boolean isValidMove(int column) {
-        return column >= 0 && column <= 6 && board[0][column] == '.';
+    // Check if the move is valid
+    private boolean isValidMove(int col) {
+        return col >= 0 && col < 7 && board[0][col] == '.';
     }
 
-    private void makeMove(int column, char symbol) {
-        for (int i = 5; i >= 0; i--) {
-            if (board[i][column] == '.') {
-                board[i][column] = symbol;
+    // Make a move on the board
+    private void makeMove(int col, char playerChar) {
+        for (int row = 5; row >= 0; row--) {
+            if (board[row][col] == '.') {
+                board[row][col] = playerChar;
                 break;
             }
         }
     }
 
-    private boolean checkWin(char symbol) {
-        return checkHorizontal(symbol) || checkVertical(symbol) || checkDiagonal(symbol);
+    // Check for win conditions
+    private boolean checkWin(char playerChar) {
+        // Check horizontal, vertical, and diagonal win conditions
+        return checkHorizontalWin(playerChar) || checkVerticalWin(playerChar) || checkDiagonalWin(playerChar);
     }
 
-    private boolean checkHorizontal(char symbol) {
+    private boolean checkHorizontalWin(char playerChar) {
         for (int row = 0; row < 6; row++) {
             for (int col = 0; col < 4; col++) {
-                if (board[row][col] == symbol && board[row][col + 1] == symbol
-                        && board[row][col + 2] == symbol && board[row][col + 3] == symbol) {
+                if (board[row][col] == playerChar && board[row][col + 1] == playerChar &&
+                    board[row][col + 2] == playerChar && board[row][col + 3] == playerChar) {
                     return true;
                 }
             }
@@ -168,11 +162,11 @@ public class GameLogic {
         return false;
     }
 
-    private boolean checkVertical(char symbol) {
+    private boolean checkVerticalWin(char playerChar) {
         for (int col = 0; col < 7; col++) {
             for (int row = 0; row < 3; row++) {
-                if (board[row][col] == symbol && board[row + 1][col] == symbol
-                        && board[row + 2][col] == symbol && board[row + 3][col] == symbol) {
+                if (board[row][col] == playerChar && board[row + 1][col] == playerChar &&
+                    board[row + 2][col] == playerChar && board[row + 3][col] == playerChar) {
                     return true;
                 }
             }
@@ -180,21 +174,20 @@ public class GameLogic {
         return false;
     }
 
-    private boolean checkDiagonal(char symbol) {
-        // Check downward diagonal (\)
+    private boolean checkDiagonalWin(char playerChar) {
+        // Check for diagonal wins
         for (int row = 3; row < 6; row++) {
             for (int col = 0; col < 4; col++) {
-                if (board[row][col] == symbol && board[row - 1][col + 1] == symbol
-                        && board[row - 2][col + 2] == symbol && board[row - 3][col + 3] == symbol) {
+                if (board[row][col] == playerChar && board[row - 1][col + 1] == playerChar &&
+                    board[row - 2][col + 2] == playerChar && board[row - 3][col + 3] == playerChar) {
                     return true;
                 }
             }
         }
-        // Check upward diagonal (/)
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 4; col++) {
-                if (board[row][col] == symbol && board[row + 1][col + 1] == symbol
-                        && board[row + 2][col + 2] == symbol && board[row + 3][col + 3] == symbol) {
+                if (board[row][col] == playerChar && board[row + 1][col + 1] == playerChar &&
+                    board[row + 2][col + 2] == playerChar && board[row + 3][col + 3] == playerChar) {
                     return true;
                 }
             }
@@ -202,6 +195,7 @@ public class GameLogic {
         return false;
     }
 
+    // Check if the game is a draw
     private boolean checkDraw() {
         for (int col = 0; col < 7; col++) {
             if (board[0][col] == '.') {
@@ -209,19 +203,19 @@ public class GameLogic {
             }
         }
         displayBoard();
-        System.out.println(SEPARATOR);
         System.out.println("The game is a draw!");
-        System.out.println(SEPARATOR);
-        out.println("DRAW");
+        this.out.println("DRAW");
+        System.exit(0);
         return true;
     }
 
+    // Display the current game board
     private void displayBoard() {
         System.out.println("\nCurrent Board:");
-        for (int row = 0; row < 6; row++) {
+        for (char[] row : board) {
             System.out.print("| ");
-            for (int col = 0; col < 7; col++) {
-                System.out.print(board[row][col] + " | ");
+            for (char slot : row) {
+                System.out.print(slot + " | ");
             }
             System.out.println();
         }
