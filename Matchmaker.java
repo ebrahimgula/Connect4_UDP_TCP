@@ -3,140 +3,162 @@ import java.net.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Matchmaker {
-    private static final String SEPARATOR = "════════════════════════════════════════════════════════════════════════════════════";
-    private static final int TIMEOUT = 30000;  // 30 seconds timeout for UDP listening
+    private static final String SEPARATOR = "════════════════════════ˋˏ-༻❁༺-ˎˊ════════════════════════";
+    private static final int TIMEOUT = 30000;  // 30 seconds timeout to listen for NEW GAME messages
 
     private String broadcastAddress;
-    private int udpPort;  // The fixed UDP port for broadcasting
-    private int tcpPort;  // Randomly generated TCP port for the game connection
-    private AtomicBoolean connected = new AtomicBoolean(false);  // To track if the connection is established
+    private int udpPort;  // This is the fixed UDP port specified by the user
+    private int tcpPort;  // This is the randomly generated TCP port for game connection
+    private AtomicBoolean connected = new AtomicBoolean(false);  // Tracks whether a connection has been established
 
     public Matchmaker(String broadcastAddress, int udpPort, int tcpPort) {
         this.broadcastAddress = broadcastAddress;
-        this.udpPort = udpPort;  // Fixed UDP port for broadcast
-        this.tcpPort = tcpPort;  // Randomly generated TCP port (9000-9100)
+        this.udpPort = udpPort;  // UDP port that is specified by user
+        this.tcpPort = tcpPort;  // This is the randomly generated TCP port for game connection
     }
 
-    // Start the matchmaking process
+    // Start matchmaking process
     public void startMatchmaking() {
         displayBanner();
         System.out.println("Searching for opponents...");
 
         while (!connected.get()) {
             try {
-                boolean messageReceived = listenForUdpMessage();
-
-                if (!messageReceived) {
-                    sendUdpBroadcast();
-                    startTcpServer();  // Start the TCP server after sending "NEW GAME"
-                }
-            } catch (IOException e) {
-                System.out.println("Error occurred during matchmaking: " + e.getMessage());
+                listenForUdpMessage();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
 
-    // Listen for UDP broadcast messages from other players
-    private boolean listenForUdpMessage() throws IOException {
-        if (connected.get()) return true;
+    // Send UDP broadcast with TCP port to inform others that a new game is available
+    public void sendUdpBroadcast() {
+        if (connected.get()) return;  // Stop broadcasting after the connection is established
+        
+        try (DatagramSocket udpSocket = new DatagramSocket()) {
+            udpSocket.setBroadcast(true);
+            InetAddress broadcastAddr = InetAddress.getByName(broadcastAddress);
 
-        try (DatagramSocket udpSocket = new DatagramSocket(udpPort)) {
-            udpSocket.setSoTimeout(TIMEOUT);
+            // Send the random TCP port in the UDP message
+            String message = "NEW GAME:" + tcpPort;  // Add the random TCP port in the message
+
+            // Send the message over UDP to the port specified by user
+            DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), broadcastAddr, udpPort);
+            udpSocket.send(packet);
+
+            // Notify what is being sent
+            System.out.println("\n" + SEPARATOR);
+            System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort + " to " + broadcastAddress + ":" + udpPort);
+
+            // Start listening for a connection on the TCP port as Player 1 (the server)
+            startTcpServer();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Listen for UDP broadcast messages to connect to the opponent
+    public void listenForUdpMessage() throws IOException {
+        if (connected.get()) return;  // Stop listening after the connection is established
+        
+        try (DatagramSocket udpSocket = new DatagramSocket(udpPort)) {  // Listen on the UDP port 
+            udpSocket.setSoTimeout(TIMEOUT);  // Set the socket to listen for 30 seconds
             byte[] buffer = new byte[256];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
             System.out.println("\n" + SEPARATOR);
             System.out.println("Listening for 'NEW GAME' messages on UDP port " + udpPort + " for " + TIMEOUT / 1000 + " seconds...");
-            udpSocket.receive(packet);  // Listen for incoming messages
 
+            try {
+                udpSocket.receive(packet);
+            } catch (SocketTimeoutException e) {
+                // No "NEW GAME" message received within the timeout, so Player 1 broadcasts the game
+                System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds. Broadcasting...");
+                sendUdpBroadcast();
+                return;
+            }
+
+            // Convert the message into a string and parse the TCP port
             String receivedMessage = new String(packet.getData(), 0, packet.getLength());
             System.out.println("Received message: " + receivedMessage);
 
             if (receivedMessage.startsWith("NEW GAME:")) {
-                int opponentTcpPort = Integer.parseInt(receivedMessage.split(":")[1]);
-                String opponentIp = packet.getAddress().getHostAddress();
+                String[] parts = receivedMessage.split(":");
+                if (parts.length == 2) {
+                    int opponentTcpPort = Integer.parseInt(parts[1]);  // Extract the TCP port from the message
+                    String opponentIp = packet.getAddress().getHostAddress();
 
-                System.out.println("\n" + SEPARATOR);
-                System.out.println("Opponent found! Connecting to " + opponentIp + ":" + opponentTcpPort + "...");
-                startGameAsClient(opponentIp, opponentTcpPort);  // Act as Player 2 (client)
-                connected.set(true);
-                return true;
+                    System.out.println("Connecting to opponent at " + opponentIp + ":" + opponentTcpPort);
+                    startGameAsClient(opponentIp, opponentTcpPort);  // Act as client and connect to the opponent
+
+                    connected.set(true);  // Mark the connection as established
+                } else {
+                    System.out.println("Invalid 'NEW GAME' message format.");
+                }
+            } else {
+                System.out.println("Invalid message received: " + receivedMessage);
             }
-        } catch (SocketTimeoutException e) {
-            System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds.");
-            return false;
-        }
-
-        return false;
-    }
-
-    // Send UDP broadcast with the player's TCP port to invite others to connect
-    private void sendUdpBroadcast() {
-        if (connected.get()) return;
-
-        try (DatagramSocket udpSocket = new DatagramSocket()) {
-            udpSocket.setBroadcast(true);
-            InetAddress broadcastAddr = InetAddress.getByName(broadcastAddress);
-            String message = "NEW GAME:" + tcpPort;
-
-            DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), broadcastAddr, udpPort);
-            udpSocket.send(packet);
-
-            System.out.println("\n" + SEPARATOR);
-            System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort);
-            System.out.println("Setting up TCP server to accept incoming connections...");
-
-            // After sending, start the TCP server to accept connections
         } catch (IOException e) {
-            System.out.println("Error sending UDP broadcast: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    // Start the game as a client (Player 2) and connect to the opponent's TCP port
-    private void startGameAsClient(String opponentIp, int opponentTcpPort) {
-        if (connected.get()) return;
-
+    // Method to start the game as the client and connect to the opponent
+    public void startGameAsClient(String opponentIp, int tcpPort) {
+        if (connected.get()) return;  // Do not try to reconnect if already connected
+        
         try {
             Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(opponentIp, opponentTcpPort), 5000);  // 5-second timeout for TCP connection
-            System.out.println("Connected to opponent at " + opponentIp + ":" + opponentTcpPort + "!");
+            socket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);  // 5-second timeout
+            System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
             System.out.println("\n" + SEPARATOR);
 
-            GameLogic gameLogic = new GameLogic(socket, false);  // Player 2 (false)
+            // Start the game logic as client (Player 2)
+            GameLogic gameLogic = new GameLogic(socket, false);  // False means this is Player 2
             gameLogic.start();
-            connected.set(true);
-        } catch (SocketTimeoutException e) {
-            System.out.println("Connection to opponent timed out.");
+            connected.set(true);  // Mark the connection as established
         } catch (IOException e) {
-            System.out.println("Unable to connect to opponent at " + opponentIp + ":" + opponentTcpPort + ": " + e.getMessage());
+            e.printStackTrace();
+            System.err.println("Unable to connect to opponent at " + opponentIp + ":" + tcpPort);
         }
     }
 
-    // Start a TCP server for the opponent to connect (Player 1)
-    private void startTcpServer() {
-        if (connected.get()) return;
-
+    // Method to start a TCP server and listen for incoming connections
+    public void startTcpServer() {
+        if (connected.get()) return;  // Do not start a server if already connected
+        
         try (ServerSocket serverSocket = new ServerSocket(tcpPort)) {
             serverSocket.setSoTimeout(TIMEOUT * 2);  // Wait for up to 60 seconds for the opponent to connect
             System.out.println("Waiting for opponent to connect on TCP port " + tcpPort + "...");
-
-            Socket clientSocket = serverSocket.accept();  // Wait for Player 2 to connect
+            
+            // Wait for an opponent to connect
+            Socket clientSocket = serverSocket.accept();
             System.out.println("Opponent connected!");
             System.out.println("\n" + SEPARATOR);
 
-            GameLogic gameLogic = new GameLogic(clientSocket, true);  // Player 1 (true)
+            // Start the game logic as server (Player 1)
+            GameLogic gameLogic = new GameLogic(clientSocket, true);  // True means this is Player 1
             gameLogic.start();
-            connected.set(true);
+            connected.set(true);  // Mark the connection as established
         } catch (SocketTimeoutException e) {
             System.out.println("No opponent connected within the time limit.");
         } catch (IOException e) {
-            System.out.println("Error setting up TCP server: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     // Banner to display when the program starts
     private void displayBanner() {
-        System.out.println("Welcome to Connect4 Multiplayer!");
+        System.out.println("                                                                                              ");
+        System.out.println("  .g8\"\"\"bgd   .g8\"\"8q. `7MN.   `7MF`7MN.   `7MF`7MM\"\"\"YMM    .g8\"\"\"bgd MMP\"\"MM\"\"YMM      ");
+        System.out.println(".dP'     `M .dP'    `YM. MMN.    M   MMN.    M   MM    `7  .dP'     `M P'   MM   `7      ");
+        System.out.println("dM'       ` dM'      `MM M YMb   M   M YMb   M   MM   d    dM'       `      MM      ,AM  ");
+        System.out.println("MM          MM        MM M  `MN. M   M  `MN. M   MMmmMM    MM               MM     AVMM  ");
+        System.out.println("MM.         MM.      ,MP M   `MM.M   M   `MM.M   MM   Y  , MM.              MM   ,W' MM  ");
+        System.out.println("`Mb.     ,' `Mb.    ,dP' M     YMM   M     YMM   MM     ,M `Mb.     ,'      MM ,W'   MM  ");
+        System.out.println("  `\"bmmmd'    `\"bmmd\"' .JML.    YM .JML.    YM .JMMmmmmMMM   `\"bmmmd'     .JMMLAmmmmmMMmm");
+        System.out.println("                                                                                     MM  ");
+        System.out.println("                                                                                     MM  ");
         System.out.println(SEPARATOR);
     }
 }
