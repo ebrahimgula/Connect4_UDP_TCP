@@ -9,6 +9,9 @@ public class Matchmaker {
     private int udpPort;  // This is the fixed UDP port specified by the user
     private int tcpPort;  // This is the randomly generated TCP port for game connection
     private boolean connected = false;  // Tracks whether a connection has been established
+    private DatagramSocket udpSocket = null;  // UDP Socket for broadcasting
+    private ServerSocket serverSocket = null;  // TCP Server Socket
+    private Socket clientSocket = null;  // TCP Client Socket
 
     public Matchmaker(String broadcastAddress, int udpPort, int tcpPort) {
         this.broadcastAddress = broadcastAddress;
@@ -33,7 +36,8 @@ public class Matchmaker {
     public void sendUdpBroadcast() {
         if (connected) return;  // Stop broadcasting after the connection is established
 
-        try (DatagramSocket udpSocket = new DatagramSocket()) {
+        try {
+            udpSocket = new DatagramSocket();
             InetAddress broadcastAddr = InetAddress.getByName(broadcastAddress);
             udpSocket.setBroadcast(true);
 
@@ -52,6 +56,11 @@ public class Matchmaker {
             startTcpServer();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            // Ensure UDP socket is closed
+            if (udpSocket != null && !udpSocket.isClosed()) {
+                udpSocket.close();
+            }
         }
     }
 
@@ -59,7 +68,8 @@ public class Matchmaker {
     public void listenForUdpMessage() throws IOException {
         if (connected) return;  // Stop listening after the connection is established
 
-        try (DatagramSocket udpSocket = new DatagramSocket(udpPort)) {  // Listen on the UDP port
+        try {
+            udpSocket = new DatagramSocket(udpPort);  // Listen on the UDP port
             byte[] buffer = new byte[256];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
@@ -94,6 +104,11 @@ public class Matchmaker {
             sendUdpBroadcast();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            // Ensure UDP socket is closed
+            if (udpSocket != null && !udpSocket.isClosed()) {
+                udpSocket.close();
+            }
         }
     }
 
@@ -102,17 +117,26 @@ public class Matchmaker {
         if (connected) return;  // Do not try to reconnect if already connected
 
         try {
-            Socket socket = new Socket();
-            socket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);  // 5-second timeout
+            clientSocket = new Socket();
+            clientSocket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);  // 5-second timeout
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
             System.out.println("\n" + SEPARATOR);
 
             // Start the game logic as client (Player 2)
-            GameLogic gameLogic = new GameLogic(socket, false);  // False means this is Player 2
+            GameLogic gameLogic = new GameLogic(clientSocket, false);  // False means this is Player 2
             gameLogic.start();
         } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Unable to connect to opponent at " + opponentIp + ":" + tcpPort);
+        } finally {
+            // Ensure client socket is closed after the game finishes
+            if (clientSocket != null && !clientSocket.isClosed()) {
+                try {
+                    clientSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
@@ -120,9 +144,10 @@ public class Matchmaker {
     public void startTcpServer() {
         if (connected) return;  // Do not start a server if already connected
 
-        try (ServerSocket serverSocket = new ServerSocket(tcpPort)) {
+        try {
+            serverSocket = new ServerSocket(tcpPort);
             System.out.println("Waiting for opponent to connect on TCP port " + tcpPort + "...");
-            Socket clientSocket = serverSocket.accept();  // Wait for an opponent to connect
+            clientSocket = serverSocket.accept();  // Wait for an opponent to connect
             System.out.println("Opponent connected!");
             System.out.println("\n" + SEPARATOR);
 
@@ -131,6 +156,22 @@ public class Matchmaker {
             gameLogic.start();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            // Ensure server and client sockets are closed after the game finishes
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                try {
+                    serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (clientSocket != null && !clientSocket.isClosed()) {
+                try {
+                    clientSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
