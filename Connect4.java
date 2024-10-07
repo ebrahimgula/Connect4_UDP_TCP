@@ -1,7 +1,7 @@
 public class Connect4 {
 
    // Define the banner and separator as static final fields
-   public static final String SEPARATOR = "════════════════════════ˋˏ-༻❁༺-ˎˊ════════════════════════";
+   public static final String SEPARATOR = "\n" + "════════════════════════ˋˏ-༻❁༺-ˎˊ════════════════════════";
    public static final String BANNER = 
          "                                                                                              \n" +
          "  .g8\"\"\"bgd   .g8\"\"8q. `7MN.   `7MF`7MN.   `7MF`7MM\"\"\"YMM    .g8\"\"\"bgd MMP\"\"MM\"\"YMM      \n" +

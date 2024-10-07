@@ -40,7 +40,7 @@ public class Matchmaker {
             DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), broadcastAddr, udpPort);
             udpSocket.send(packet);
 
-            System.out.println("\n" + SEPARATOR);
+            System.out.println(SEPARATOR);
             System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort + " to " + broadcastAddress + ":" + udpPort);
             startTcpServer();
         } catch (IOException e) {
@@ -61,7 +61,7 @@ public class Matchmaker {
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
             udpSocket.setSoTimeout(TIMEOUT);
-            System.out.println("\n" + SEPARATOR);
+            System.out.println(SEPARATOR);
             System.out.println("Listening for 'NEW GAME' messages on UDP port " + udpPort + "...");
             udpSocket.receive(packet);
 
