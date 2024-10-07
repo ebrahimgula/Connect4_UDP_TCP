@@ -29,139 +29,110 @@ public class GameLogic {
         try {
             this.in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
             this.out = new PrintWriter(this.socket.getOutputStream(), true);
-            boolean gameEnded = false;
 
-            while (!gameEnded) {
-                if (this.isPlayerOne) {
-                    playerTurn('X');
-                    gameEnded = checkWin('X') || checkDraw();
-                    if (gameEnded) break;
-                    opponentTurn('O');
-                    gameEnded = checkWin('O') || checkDraw();
-                } else {
-                    opponentTurn('X');
-                    gameEnded = checkWin('X') || checkDraw();
-                    if (gameEnded) break;
-                    playerTurn('O');
-                    gameEnded = checkWin('O') || checkDraw();
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("ERROR: Connection issue.");
-            e.printStackTrace();
-        } finally {
-            cleanup();
-        }
-    }
-
-    private void playerTurn(char playerChar) throws IOException {
-        displayBoard();
-        System.out.println(SEPARATOR);
-        System.out.print("Your turn. Enter column (1-7): ");
-
-        int col;
-        while (true) {
-            try {
-                col = Integer.parseInt(this.scanner.nextLine()) - 1;
-                if (isValidMove(col)) {
-                    makeMove(col, playerChar);
-                    break;
-                }
-                System.out.print("Invalid move. Try again: ");
-            } catch (NumberFormatException e) {
-                System.out.print("Please enter a valid column number (1-7): ");
-            }
-        }
-
-        if (checkWin(playerChar)) {
-            displayBoard();
-            System.out.println(SEPARATOR);
-            System.out.println("You win!");
-            this.out.println("YOU WIN");
-            gameOver();
-        } else {
-            this.out.println("INSERT:" + (col + 1));
-        }
-    }
-
-    private void opponentTurn(char opponentChar) throws IOException {
-        System.out.println(SEPARATOR);
-        System.out.println("Waiting for opponent's move...");
-        String receivedMessage = this.in.readLine();
-        if (receivedMessage == null) {
-            System.out.println("Opponent disconnected.");
-            gameOver();
-        }
-
-        if (receivedMessage.startsWith("INSERT:")) {
-            int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
-            if (isValidMove(col)) {
-                makeMove(col, opponentChar);
-                if (checkWin(opponentChar)) {
-                    displayBoard();
-                    System.out.println(SEPARATOR);
-                    System.out.println("You lose!");
-                    this.out.println("YOU LOSE");
-                    gameOver();
-                }
+            if (isPlayerOne) {
+                System.out.println("You are Player 1. You go first.");
+                playerTurn();
             } else {
-                System.out.println("ERROR");
-                this.out.println("ERROR");
-                gameOver();
+                System.out.println("You are Player 2. Waiting for Player 1...");
+                opponentTurn();
             }
-        } else if (receivedMessage.equals("YOU WIN")) {
-            displayBoard();
-            System.out.println(SEPARATOR);
-            System.out.println("You lose!");
-            gameOver();
-        } else {
-            System.out.println("ERROR");
-            this.out.println("ERROR");
-            gameOver();
-        }
-    }
-
-    private void gameOver() {
-        System.out.println("Thanks for playing!");
-        System.out.println(SEPARATOR);
-        System.out.println(BANNER);
-        cleanup();
-        System.exit(0);
-    }
-
-    private void cleanup() {
-        try {
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
-            scanner.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("ERROR: " + e.getMessage());
+            sendError();
         }
     }
 
-    private boolean isValidMove(int col) {
-        return col >= 0 && col < 7 && board[0][col] == '.';
+    private void playerTurn() {
+        printBoard();
+        System.out.println("Enter column (0-6): ");
+        int column = scanner.nextInt();
+
+        if (column < 0 || column > 6) {
+            System.out.println("Invalid column. Please enter a value between 0 and 6.");
+            playerTurn();
+            return;
+        }
+
+        if (!insertDisc(column, isPlayerOne ? 'X' : 'O')) {
+            System.out.println("Column is full. Try another column.");
+            playerTurn();
+            return;
+        }
+
+        out.println("INSERT:" + column);
+        if (checkWin()) {
+            System.out.println("Congratulations! You win!");
+            out.println("YOU WIN");
+            closeConnection();
+            return;
+        }
+
+        opponentTurn();
     }
 
-    private void makeMove(int col, char playerChar) {
-        for (int row = 5; row >= 0; row--) {
-            if (board[row][col] == '.') {
-                board[row][col] = playerChar;
-                break;
+    private void opponentTurn() {
+        try {
+            String response = in.readLine();
+            if (response == null) {
+                System.out.println("Opponent disconnected.");
+                closeConnection();
+                return;
+            }
+
+            String[] parts = response.split(":");
+            switch (parts[0]) {
+                case "INSERT":
+                    int column = Integer.parseInt(parts[1]);
+                    insertDisc(column, isPlayerOne ? 'O' : 'X');
+                    if (checkWin()) {
+                        System.out.println("Opponent wins!");
+                        closeConnection();
+                        return;
+                    }
+                    playerTurn();
+                    break;
+                case "YOU WIN":
+                    System.out.println("You lose. Opponent wins.");
+                    closeConnection();
+                    break;
+                case "ERROR":
+                    System.out.println("Error received from opponent. Terminating game.");
+                    closeConnection();
+                    break;
+                default:
+                    System.out.println("Unknown message received: " + response);
+                    sendError();
+                    break;
+            }
+        } catch (IOException e) {
+            System.out.println("ERROR: " + e.getMessage());
+            sendError();
+        }
+    }
+
+    private boolean insertDisc(int column, char disc) {
+        for (int row = board.length - 1; row >= 0; row--) {
+            if (board[row][column] == '.') {
+                board[row][column] = disc;
+                return true;
             }
         }
+        return false;
     }
 
-    private boolean checkWin(char playerChar) {
-        return checkHorizontalWin(playerChar) || checkVerticalWin(playerChar) || checkDiagonalWin(playerChar);
+    private boolean checkWin() {
+        // Check horizontal, vertical, and diagonal win conditions
+        return checkHorizontalWin() || checkVerticalWin() || checkDiagonalWin();
     }
 
-    private boolean checkHorizontalWin(char playerChar) {
-        for (int row = 0; row < 6; row++) {
-            for (int col = 0; col < 4; col++) {
-                if (board[row][col] == playerChar && board[row][col + 1] == playerChar &&
-                    board[row][col + 2] == playerChar && board[row][col + 3] == playerChar) {
+    private boolean checkHorizontalWin() {
+        for (int row = 0; row < board.length; row++) {
+            for (int col = 0; col < board[row].length - 3; col++) {
+                if (board[row][col] != '.' &&
+                    board[row][col] == board[row][col + 1] &&
+                    board[row][col] == board[row][col + 2] &&
+                    board[row][col] == board[row][col + 3]) {
                     return true;
                 }
             }
@@ -169,11 +140,13 @@ public class GameLogic {
         return false;
     }
 
-    private boolean checkVerticalWin(char playerChar) {
-        for (int col = 0; col < 7; col++) {
-            for (int row = 0; row < 3; row++) {
-                if (board[row][col] == playerChar && board[row + 1][col] == playerChar &&
-                    board[row + 2][col] == playerChar && board[row + 3][col] == playerChar) {
+    private boolean checkVerticalWin() {
+        for (int col = 0; col < board[0].length; col++) {
+            for (int row = 0; row < board.length - 3; row++) {
+                if (board[row][col] != '.' &&
+                    board[row][col] == board[row + 1][col] &&
+                    board[row][col] == board[row + 2][col] &&
+                    board[row][col] == board[row + 3][col]) {
                     return true;
                 }
             }
@@ -181,19 +154,22 @@ public class GameLogic {
         return false;
     }
 
-    private boolean checkDiagonalWin(char playerChar) {
-        for (int row = 3; row < 6; row++) {
-            for (int col = 0; col < 4; col++) {
-                if (board[row][col] == playerChar && board[row - 1][col + 1] == playerChar &&
-                    board[row - 2][col + 2] == playerChar && board[row - 3][col + 3] == playerChar) {
+    private boolean checkDiagonalWin() {
+        // Check for diagonals (both directions)
+        for (int row = 0; row < board.length - 3; row++) {
+            for (int col = 0; col < board[row].length - 3; col++) {
+                if (board[row][col] != '.' &&
+                    board[row][col] == board[row + 1][col + 1] &&
+                    board[row][col] == board[row + 2][col + 2] &&
+                    board[row][col] == board[row + 3][col + 3]) {
                     return true;
                 }
             }
-        }
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 4; col++) {
-                if (board[row][col] == playerChar && board[row + 1][col + 1] == playerChar &&
-                    board[row + 2][col + 2] == playerChar && board[row + 3][col + 3] == playerChar) {
+            for (int col = 3; col < board[row].length; col++) {
+                if (board[row][col] != '.' &&
+                    board[row][col] == board[row + 1][col - 1] &&
+                    board[row][col] == board[row + 2][col - 2] &&
+                    board[row][col] == board[row + 3][col - 3]) {
                     return true;
                 }
             }
@@ -201,29 +177,26 @@ public class GameLogic {
         return false;
     }
 
-    private boolean checkDraw() {
-        for (int col = 0; col < 7; col++) {
-            if (board[0][col] == '.') {
-                return false;
-            }
-        }
-        displayBoard();
-        System.out.println(SEPARATOR);
-        System.out.println("The game is a draw!");
-        this.out.println("DRAW");
-        gameOver();
-        return true;
-    }
-
-    private void displayBoard() {
-        System.out.println("\nCurrent Board:");
+    private void printBoard() {
         for (char[] row : board) {
-            System.out.print("| ");
-            for (char slot : row) {
-                System.out.print(slot + " | ");
+            for (char cell : row) {
+                System.out.print(cell + " ");
             }
             System.out.println();
         }
-        System.out.println("  1   2   3   4   5   6   7 \n");
+        System.out.println(SEPARATOR);
+    }
+
+    private void sendError() {
+        out.println("ERROR");
+        closeConnection();
+    }
+
+    private void closeConnection() {
+        try {
+            if (socket != null) socket.close();
+        } catch (IOException e) {
+            System.out.println("Failed to close socket: " + e.getMessage());
+        }
     }
 }
