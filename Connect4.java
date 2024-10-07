@@ -19,8 +19,8 @@ public class Connect4 {
          "  `\"bmmmd'    `\"bmmd\"' .JML.    YM .JML.    YM .JMMmmmmMMM   `\"bmmmd'     .JMMLAmmmmmMMmm\n" +
          "                                                                                     MM  \n" +
          "                                                                                     MM  \n" +
-         SEPARATOR +
-         RESET_COLOR; // Reset to default text color
+         RESET_COLOR + // Reset to default color before separator
+         SEPARATOR;
 
    public static void main(String[] args) {
        if (args.length != 2) {
