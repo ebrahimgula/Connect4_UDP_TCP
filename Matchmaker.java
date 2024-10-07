@@ -3,7 +3,6 @@ import java.net.*;
 
 public class Matchmaker {
     private static final String SEPARATOR = Connect4.SEPARATOR;  // Reuse separator
-    private static final String BANNER = Connect4.BANNER;  // Reuse banner
     private static final int TIMEOUT = 30000;
 
     private String broadcastAddress;
@@ -95,7 +94,7 @@ public class Matchmaker {
             clientSocket = new Socket();
             clientSocket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
-            System.out.println("\n" + SEPARATOR);
+            System.out.println("\n");
 
             GameLogic gameLogic = new GameLogic(clientSocket, false);
             gameLogic.start();

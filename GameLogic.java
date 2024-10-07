@@ -216,14 +216,28 @@ public class GameLogic {
     }
 
     private void displayBoard() {
+        final String RESET = "\u001B[0m";  // ANSI reset code
+        final String RED = "\u001B[31m";   // ANSI red color for Player 1
+        final String YELLOW = "\u001B[33m"; // ANSI yellow color for Player 2
+    
         System.out.println("\nCurrent Board:");
+        System.out.println("  1   2   3   4   5   6   7 ");
+        System.out.println("+---+---+---+---+---+---+---+");
+    
         for (char[] row : board) {
             System.out.print("| ");
             for (char slot : row) {
-                System.out.print(slot + " | ");
+                if (slot == 'X') {
+                    System.out.print(RED + slot + RESET + " | ");
+                } else if (slot == 'O') {
+                    System.out.print(YELLOW + slot + RESET + " | ");
+                } else {
+                    System.out.print(slot + " | ");
+                }
             }
             System.out.println();
+            System.out.println("+---+---+---+---+---+---+---+");
         }
-        System.out.println("  1   2   3   4   5   6   7 \n");
     }
 }
+    
