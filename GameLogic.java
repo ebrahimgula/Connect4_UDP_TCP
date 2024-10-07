@@ -220,7 +220,7 @@ public class GameLogic {
         final String RED = "\u001B[31m";   // ANSI red color for Player 1
         final String YELLOW = "\u001B[33m"; // ANSI yellow color for Player 2
     
-        System.out.println("\nCurrent Board:");
+        System.out.println("\nCurrent Board:\n");
         System.out.println("  1   2   3   4   5   6   7 ");
         System.out.println("❁═══❁═══❁═══❁═══❁═══❁═══❁═══❁");
     
