@@ -95,7 +95,7 @@ public class Matchmaker {
             clientSocket = new Socket();
             clientSocket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
-            System.out.println("\n");
+            System.out.println("\n" + SEPARATOR);
 
             GameLogic gameLogic = new GameLogic(clientSocket, false);
             gameLogic.start();
@@ -115,7 +115,7 @@ public class Matchmaker {
             System.out.println("Waiting for opponent to connect on TCP port " + tcpPort + "...");
             clientSocket = serverSocket.accept();
             System.out.println("Opponent connected!");
-            System.out.println("\n" + SEPARATOR);
+            System.out.println("\n");
 
             GameLogic gameLogic = new GameLogic(clientSocket, true);
             gameLogic.start();
