@@ -20,11 +20,22 @@ public class Matchmaker {
     }
 
     public void startMatchmaking() {
-        System.out.println("Searching for opponents...");
-        try {
-            listenForUdpMessage();
-        } catch (Exception e) {
-            e.printStackTrace();
+        System.out.println("Starting matchmaking process...");
+        boolean gameFound = false;
+
+        while (!gameFound) {
+            try {
+                gameFound = listenForUdpMessage();
+                
+                // If no "NEW GAME" message was found, send one and try again
+                if (!gameFound) {
+                    System.out.println("No 'NEW GAME' message received, sending my own.");
+                    sendUdpBroadcast();
+                    Thread.sleep(TIMEOUT); // Wait for 30 seconds before checking again
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -52,8 +63,8 @@ public class Matchmaker {
         }
     }
 
-    public void listenForUdpMessage() throws IOException {
-        if (connected) return;
+    public boolean listenForUdpMessage() throws IOException {
+        if (connected) return true;
 
         try {
             udpSocket = new DatagramSocket(udpPort);
@@ -74,10 +85,10 @@ public class Matchmaker {
 
                 System.out.println("Connecting to opponent at " + opponentIp + ":" + opponentTcpPort);
                 startGameAsClient(opponentIp, opponentTcpPort);
+                return true; // Successfully found an opponent
             }
         } catch (SocketTimeoutException e) {
             System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds. Broadcasting...");
-            sendUdpBroadcast();
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -85,6 +96,7 @@ public class Matchmaker {
                 udpSocket.close();
             }
         }
+        return false; // No opponent found, continue the process
     }
 
     public void startGameAsClient(String opponentIp, int tcpPort) {
@@ -94,7 +106,6 @@ public class Matchmaker {
             clientSocket = new Socket();
             clientSocket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
-          
 
             GameLogic gameLogic = new GameLogic(clientSocket, false);
             gameLogic.start();
@@ -103,7 +114,6 @@ public class Matchmaker {
             e.printStackTrace();
             System.err.println("Unable to connect to opponent at " + opponentIp + ":" + tcpPort);
         }
-        // Removed the finally block that closes clientSocket
     }
 
     public void startTcpServer() {
@@ -122,6 +132,5 @@ public class Matchmaker {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        // Removed the finally block that closes serverSocket and clientSocket
     }
 }
