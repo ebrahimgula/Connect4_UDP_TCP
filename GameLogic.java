@@ -8,7 +8,7 @@ import java.util.Scanner;
 
 public class GameLogic {
     private static final String SEPARATOR = Connect4.SEPARATOR;  // Reuse separator
-    private static final String BANNER = Connect4.BANNER;  // Reuse banner
+    private static final String BANNER = Connect4.BANNER;        // Reuse banner
     
     private Socket socket;
     private boolean isPlayerOne;
@@ -73,8 +73,10 @@ public class GameLogic {
             }
         }
 
+        // Display the board after making the move
+        displayBoard();
+
         if (checkWin(playerChar)) {
-            displayBoard();
             System.out.println(SEPARATOR);
             System.out.println("You win!");
             this.out.println("YOU WIN");
@@ -97,8 +99,11 @@ public class GameLogic {
             int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
             if (isValidMove(col)) {
                 makeMove(col, opponentChar);
+
+                // Display the board after the opponent's move
+                displayBoard();
+
                 if (checkWin(opponentChar)) {
-                    displayBoard();
                     System.out.println(SEPARATOR);
                     System.out.println("You lose!");
                     this.out.println("YOU LOSE");
@@ -122,7 +127,6 @@ public class GameLogic {
     }
 
     private void gameOver() {
-        System.out.println(SEPARATOR);
         System.out.println("Thanks for playing!");
         System.out.println(SEPARATOR);
         System.out.println(BANNER);
