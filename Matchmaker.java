@@ -21,7 +21,6 @@ public class Matchmaker {
     }
 
     public void startMatchmaking() {
-        System.out.println(BANNER);
         System.out.println("Searching for opponents...");
         try {
             listenForUdpMessage();
@@ -76,7 +75,6 @@ public class Matchmaker {
 
                 System.out.println("Connecting to opponent at " + opponentIp + ":" + opponentTcpPort);
                 startGameAsClient(opponentIp, opponentTcpPort);
-                connected = true;
             }
         } catch (SocketTimeoutException e) {
             System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds. Broadcasting...");
@@ -101,18 +99,12 @@ public class Matchmaker {
 
             GameLogic gameLogic = new GameLogic(clientSocket, false);
             gameLogic.start();
+            connected = true;  // Set connected to true here
         } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Unable to connect to opponent at " + opponentIp + ":" + tcpPort);
-        } finally {
-            if (clientSocket != null && !clientSocket.isClosed()) {
-                try {
-                    clientSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
         }
+        // Removed the finally block that closes clientSocket
     }
 
     public void startTcpServer() {
@@ -127,23 +119,10 @@ public class Matchmaker {
 
             GameLogic gameLogic = new GameLogic(clientSocket, true);
             gameLogic.start();
+            connected = true;  // Set connected to true here
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                try {
-                    serverSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (clientSocket != null && !clientSocket.isClosed()) {
-                try {
-                    clientSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
         }
+        // Removed the finally block that closes serverSocket and clientSocket
     }
 }
