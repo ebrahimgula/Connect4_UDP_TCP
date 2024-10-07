@@ -41,7 +41,7 @@ public class Matchmaker {
             udpSocket.send(packet);
 
             System.out.println(SEPARATOR);
-            System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort + " to " + broadcastAddress + ":" + udpPort);
+            System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort + " to " + broadcastAddress + ":" + tcpPort);
             startTcpServer();
         } catch (IOException e) {
             e.printStackTrace();
