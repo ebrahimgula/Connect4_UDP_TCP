@@ -2,7 +2,13 @@ public class Connect4 {
 
    // Define the banner and separator as static final fields
    public static final String SEPARATOR = "\n" + "════════════════════════ˋˏ-༻❁༺-ˎˊ════════════════════════";
+   
+   // ANSI escape code for green
+   public static final String GREEN_TEXT = "\u001B[32m";
+   public static final String RESET_COLOR = "\u001B[0m";
+   
    public static final String BANNER = 
+         GREEN_TEXT + // Start green text
          "                                                                                              \n" +
          "  .g8\"\"\"bgd   .g8\"\"8q. `7MN.   `7MF`7MN.   `7MF`7MM\"\"\"YMM    .g8\"\"\"bgd MMP\"\"MM\"\"YMM      \n" +
          ".dP'     `M .dP'    `YM. MMN.    M   MMN.    M   MM    `7  .dP'     `M P'   MM   `7      \n" +
@@ -13,7 +19,8 @@ public class Connect4 {
          "  `\"bmmmd'    `\"bmmd\"' .JML.    YM .JML.    YM .JMMmmmmMMM   `\"bmmmd'     .JMMLAmmmmmMMmm\n" +
          "                                                                                     MM  \n" +
          "                                                                                     MM  \n" +
-         SEPARATOR;
+         SEPARATOR +
+         RESET_COLOR; // Reset to default text color
 
    public static void main(String[] args) {
        if (args.length != 2) {
