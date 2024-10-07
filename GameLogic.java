@@ -56,39 +56,105 @@ public class GameLogic {
 
     private void playerTurn(char playerChar) throws IOException {
         displayBoard();
-        System.out.println("Player " + (playerChar == 'X' ? "1" : "2") + "'s turn: ");
-        System.out.print("Enter column number (1-7): ");
-        int column = scanner.nextInt() - 1;
-        dropDisc(playerChar, column);
-        out.println(column);  // Send move to opponent
+        System.out.println(SEPARATOR);
+        System.out.print("Your turn. Enter column (1-7): ");
+
+        int col;
+        while (true) {
+            try {
+                col = Integer.parseInt(this.scanner.nextLine()) - 1;
+                if (isValidMove(col)) {
+                    makeMove(col, playerChar);
+                    break;
+                }
+                System.out.print("Invalid move. Try again: ");
+            } catch (NumberFormatException e) {
+                System.out.print("Please enter a valid column number (1-7): ");
+            }
+        }
+
+        if (checkWin(playerChar)) {
+            displayBoard();
+            System.out.println(SEPARATOR);
+            System.out.println("You win!");
+            this.out.println("YOU WIN");
+            gameOver();
+        } else {
+            this.out.println("INSERT:" + (col + 1));
+        }
     }
 
-    private void opponentTurn(char playerChar) throws IOException {
-        displayBoard();
+    private void opponentTurn(char opponentChar) throws IOException {
+        System.out.println(SEPARATOR);
         System.out.println("Waiting for opponent's move...");
-        int column = Integer.parseInt(in.readLine());  // Get move from opponent
-        dropDisc(playerChar, column);
+        String receivedMessage = this.in.readLine();
+        if (receivedMessage == null) {
+            System.out.println("Opponent disconnected.");
+            gameOver();
+        }
+
+        if (receivedMessage.startsWith("INSERT:")) {
+            int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
+            if (isValidMove(col)) {
+                makeMove(col, opponentChar);
+                if (checkWin(opponentChar)) {
+                    displayBoard();
+                    System.out.println(SEPARATOR);
+                    System.out.println("You lose!");
+                    this.out.println("YOU LOSE");
+                    gameOver();
+                }
+            } else {
+                System.out.println("ERROR");
+                this.out.println("ERROR");
+                gameOver();
+            }
+        } else if (receivedMessage.equals("YOU WIN")) {
+            displayBoard();
+            System.out.println(SEPARATOR);
+            System.out.println("You lose!");
+            gameOver();
+        } else {
+            System.out.println("ERROR");
+            this.out.println("ERROR");
+            gameOver();
+        }
     }
 
-    private void dropDisc(char playerChar, int column) {
+    private void gameOver() {
+        System.out.println("Thanks for playing!");
+        System.out.println(SEPARATOR);
+        System.out.println(BANNER);
+        cleanup();
+        System.exit(0);
+    }
+
+    private void cleanup() {
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+            scanner.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean isValidMove(int col) {
+        return col >= 0 && col < 7 && board[0][col] == '.';
+    }
+
+    private void makeMove(int col, char playerChar) {
         for (int row = 5; row >= 0; row--) {
-            if (board[row][column] == '.') {
-                board[row][column] = playerChar;
+            if (board[row][col] == '.') {
+                board[row][col] = playerChar;
                 break;
             }
         }
     }
 
     private boolean checkWin(char playerChar) {
-        // Check horizontal, vertical, and diagonal wins
-        if (checkHorizontalWin(playerChar) || checkVerticalWin(playerChar) || checkDiagonalWin(playerChar)) {
-            displayBoard();
-            System.out.println("Player " + (playerChar == 'X' ? "1" : "2") + " connected 4 in a row.");
-            System.out.println("Player " + (playerChar == 'X' ? "2" : "1") + " loses.");
-            gameOver();
-            return true;
-        }
-        return false;
+        return checkHorizontalWin(playerChar) || checkVerticalWin(playerChar) || checkDiagonalWin(playerChar);
     }
 
     private boolean checkHorizontalWin(char playerChar) {
@@ -116,7 +182,6 @@ public class GameLogic {
     }
 
     private boolean checkDiagonalWin(char playerChar) {
-        // Check \ diagonal (bottom-left to top-right)
         for (int row = 3; row < 6; row++) {
             for (int col = 0; col < 4; col++) {
                 if (board[row][col] == playerChar && board[row - 1][col + 1] == playerChar &&
@@ -125,8 +190,6 @@ public class GameLogic {
                 }
             }
         }
-
-        // Check / diagonal (top-left to bottom-right)
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 4; col++) {
                 if (board[row][col] == playerChar && board[row + 1][col + 1] == playerChar &&
@@ -153,6 +216,10 @@ public class GameLogic {
     }
 
     private void displayBoard() {
+        final String RESET = "\u001B[0m";  // ANSI reset code
+        final String RED = "\u001B[31m";   // ANSI red color for Player 1
+        final String YELLOW = "\u001B[33m"; // ANSI yellow color for Player 2
+    
         System.out.println("\nCurrent Board:");
         System.out.println("  1   2   3   4   5   6   7 ");
         System.out.println("❁═══❁═══❁═══❁═══❁═══❁═══❁═══❁");
@@ -160,27 +227,18 @@ public class GameLogic {
         for (char[] row : board) {
             System.out.print("| ");
             for (char slot : row) {
-                System.out.print(slot + " | ");
+                if (slot == 'X') {
+                    System.out.print(RED + slot + RESET + " | ");
+                } else if (slot == 'O') {
+                    System.out.print(YELLOW + slot + RESET + " | ");
+                } else {
+                    System.out.print(slot + " | ");
+                }
             }
             System.out.println();
             System.out.println("❁═══❁═══❁═══❁═══❁═══❁═══❁═══❁");
         }
         System.out.println();
     }
-
-    private void gameOver() {
-        System.out.println("Game Over!");
-        this.out.println("GAME_OVER");
-        cleanup();
-    }
-
-    private void cleanup() {
-        try {
-            if (this.socket != null && !this.socket.isClosed()) {
-                this.socket.close();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }
+    
