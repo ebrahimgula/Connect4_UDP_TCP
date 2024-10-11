@@ -3,7 +3,7 @@ import java.net.*;
 
 public class Matchmaker {
     private static final String SEPARATOR = Connect4.SEPARATOR;  // Reuse separator
-    private static final int TIMEOUT = 30000;
+    private static final int TIMEOUT = 4000;
 
     private String broadcastAddress;
     private int udpPort;
