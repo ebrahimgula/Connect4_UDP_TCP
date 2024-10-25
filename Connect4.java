@@ -1,3 +1,6 @@
+import java.net.ServerSocket;
+import java.io.IOException;
+
 public class Connect4 {
 
    // Define the banner and separator as static final fields
@@ -35,11 +38,35 @@ public class Connect4 {
        String broadcastAddress = args[0];
        int broadcastPort = Integer.parseInt(args[1]);
 
-       // Randomly generate a TCP port between 9000 and 9100
-       int tcpPort = (int) (Math.random() * 101) + 9000;
+       // Generate an available TCP port between 9000 and 9100
+       int tcpPort = generateAvailablePort(9000, 9100);
+       System.out.println("Using TCP Port: " + tcpPort);
 
        // Create Matchmaker instance and start matchmaking
        Matchmaker matchmaker = new Matchmaker(broadcastAddress, broadcastPort, tcpPort);
        matchmaker.startMatchmaking();
+   }
+
+   // Generates an available TCP port between the specified range.
+
+   public static int generateAvailablePort(int minPort, int maxPort) {
+       int port;
+       while (true) {
+           // Randomly generate a port within the range
+           port = (int) (Math.random() * (maxPort - minPort + 1)) + minPort;
+           if (isPortAvailable(port)) {
+               return port;
+           }
+       }
+   }
+
+ 
+    //Checks if the given TCP port is available.
+   public static boolean isPortAvailable(int port) {
+       try (ServerSocket serverSocket = new ServerSocket(port)) {
+           return true;  // Port is available
+       } catch (IOException e) {
+           return false;  // Port is already in use
+       }
    }
 }
