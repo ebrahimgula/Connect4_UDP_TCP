@@ -3,7 +3,7 @@ import java.net.*;
 
 public class Matchmaker {
     private static final String SEPARATOR = Connect4.SEPARATOR;  // Reuse separator
-    private static final int TIMEOUT = 4000;
+    private static final int TIMEOUT = 30000;  // Adjusted timeout to 30 seconds for retrying
 
     private String broadcastAddress;
     private int udpPort;
@@ -26,12 +26,19 @@ public class Matchmaker {
         while (!gameFound) {
             try {
                 gameFound = listenForUdpMessage();
-                
+
                 // If no "NEW GAME" message was found, send one and try again
                 if (!gameFound) {
                     System.out.println("No 'NEW GAME' message received, sending my own.");
                     sendUdpBroadcast();
-                    Thread.sleep(TIMEOUT); // Wait for 30 seconds before checking again
+
+                    // Wait for some time for a connection to be established
+                    Thread.sleep(TIMEOUT);
+
+                    // If still no connection, go back to listening on UDP
+                    if (!connected) {
+                        System.out.println("No connection established. Returning to UDP listening...");
+                    }
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -53,6 +60,8 @@ public class Matchmaker {
 
             System.out.println(SEPARATOR);
             System.out.println("Sent 'NEW GAME' message with TCP port " + tcpPort + " to " + broadcastAddress + ":" + tcpPort);
+
+            // Start the TCP server and wait for a connection
             startTcpServer();
         } catch (IOException e) {
             e.printStackTrace();
@@ -85,10 +94,10 @@ public class Matchmaker {
 
                 System.out.println("Connecting to opponent at " + opponentIp + ":" + opponentTcpPort);
                 startGameAsClient(opponentIp, opponentTcpPort);
-                return true; // Successfully found an opponent
+                return true;  // Successfully found an opponent
             }
         } catch (SocketTimeoutException e) {
-            System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds. Broadcasting...");
+            System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds.");
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
@@ -96,7 +105,7 @@ public class Matchmaker {
                 udpSocket.close();
             }
         }
-        return false; // No opponent found, continue the process
+        return false;  // No opponent found, continue the process
     }
 
     public void startGameAsClient(String opponentIp, int tcpPort) {
@@ -118,19 +127,37 @@ public class Matchmaker {
 
     public void startTcpServer() {
         if (connected) return;
-
+    
         try {
             serverSocket = new ServerSocket(tcpPort);
             System.out.println("Waiting for opponent to connect on TCP port " + tcpPort + "...");
-            clientSocket = serverSocket.accept();
-            System.out.println("Opponent connected!");
-            System.out.println("\n");
-
-            GameLogic gameLogic = new GameLogic(clientSocket, true);
-            gameLogic.start();
-            connected = true;  // Set connected to true here
+    
+            // Listen for connections, but only for the specified timeout period
+            serverSocket.setSoTimeout(TIMEOUT); // You can set it to 30 seconds or more
+            try {
+                clientSocket = serverSocket.accept();
+                System.out.println("Opponent connected!");
+    
+                GameLogic gameLogic = new GameLogic(clientSocket, true);
+                gameLogic.start();
+                connected = true;  // Set connected to true here
+            } catch (SocketTimeoutException e) {
+                System.out.println("Timeout: No opponent connected within " + TIMEOUT / 1000 + " seconds.");
+                System.out.println("Will retry matchmaking.");
+                // Close the server socket and return to matchmaking
+            }
+    
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                try {
+                    serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
+    
 }
