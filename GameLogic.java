@@ -5,6 +5,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.Scanner;
+import java.net.SocketException;
 
 public class GameLogic {
     private static final String SEPARATOR = Connect4.SEPARATOR;  // Reuse separator
@@ -84,43 +85,55 @@ public class GameLogic {
         }
     }
 
-    private void opponentTurn(char opponentChar) throws IOException {
+    private void opponentTurn(char opponentChar) {
         System.out.println(SEPARATOR);
         System.out.println("Waiting for opponent's move...");
-        String receivedMessage = this.in.readLine();
-        if (receivedMessage == null) {
-            System.out.println("Opponent disconnected.");
-            gameOver();
-        }
-
-        if (receivedMessage.startsWith("INSERT:")) {
-            int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
-            if (isValidMove(col)) {
-                makeMove(col, opponentChar);
-                if (checkWin(opponentChar)) {
-                    displayBoard();
-                    System.out.println(SEPARATOR);
-                    System.out.println("You lose!");
-                    this.out.println("YOU LOSE");
+    
+        try {
+            String receivedMessage = this.in.readLine();
+            if (receivedMessage == null) {
+                System.out.println("Opponent disconnected.");
+                gameOver();
+                return;
+            }
+    
+            if (receivedMessage.startsWith("INSERT:")) {
+                int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
+                if (isValidMove(col)) {
+                    makeMove(col, opponentChar);
+                    if (checkWin(opponentChar)) {
+                        displayBoard();
+                        System.out.println(SEPARATOR);
+                        System.out.println("You lose!");
+                        this.out.println("YOU LOSE");
+                        gameOver();
+                    }
+                } else {
+                    System.out.println("ERROR: Invalid move from opponent.");
+                    this.out.println("ERROR");
                     gameOver();
                 }
+            } else if (receivedMessage.equals("YOU WIN")) {
+                displayBoard();
+                System.out.println(SEPARATOR);
+                System.out.println("You lose!");
+                gameOver();
             } else {
-                System.out.println("ERROR");
+                System.out.println("ERROR: Unexpected message from opponent.");
                 this.out.println("ERROR");
                 gameOver();
             }
-        } else if (receivedMessage.equals("YOU WIN")) {
-            displayBoard();
-            System.out.println(SEPARATOR);
-            System.out.println("You lose!");
+    
+        } catch (SocketException e) {
+            System.err.println("Connection reset by opponent. Opponent may have disconnected.");
             gameOver();
-        } else {
-            System.out.println("ERROR");
-            this.out.println("ERROR");
+        } catch (IOException e) {
+            System.out.println("ERROR: Connection issue.");
+            e.printStackTrace();
             gameOver();
         }
     }
-
+    
     private void gameOver() {
         System.out.println("Thanks for playing!");
         System.out.println(SEPARATOR);
