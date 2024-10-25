@@ -110,20 +110,42 @@ public class Matchmaker {
 
     public void startGameAsClient(String opponentIp, int tcpPort) {
         if (connected) return;
-
+    
         try {
             clientSocket = new Socket();
+            System.out.println("Attempting to connect to opponent at " + opponentIp + ":" + tcpPort + "...");
+            // Attempt to connect with a timeout
             clientSocket.connect(new InetSocketAddress(opponentIp, tcpPort), 5000);
             System.out.println("Connected to opponent at " + opponentIp + ":" + tcpPort);
-
+    
             GameLogic gameLogic = new GameLogic(clientSocket, false);
             gameLogic.start();
             connected = true;  // Set connected to true here
+        } catch (SocketTimeoutException e) {
+            // Handle the connection timeout gracefully
+            System.err.println("Connection to opponent at " + opponentIp + ":" + tcpPort + " timed out.");
+            System.out.println("Retrying matchmaking process...");
+            // Return to the matchmaking process
+            startMatchmaking();  // You can retry matchmaking here or handle retries with a count
         } catch (IOException e) {
+            // Handle other IO exceptions (such as unreachable host)
             e.printStackTrace();
             System.err.println("Unable to connect to opponent at " + opponentIp + ":" + tcpPort);
+            System.out.println("Retrying matchmaking process...");
+            // Return to the matchmaking process
+            startMatchmaking();  // Retry matchmaking or handle appropriately
+        } finally {
+            // Ensure the socket is closed if it wasn't connected
+            if (clientSocket != null && !clientSocket.isClosed()) {
+                try {
+                    clientSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
+    
 
     public void startTcpServer() {
         if (connected) return;
