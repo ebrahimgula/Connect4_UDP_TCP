@@ -75,44 +75,47 @@ public class Matchmaker {
         }
     }
 
-    // Listens for UDP messages to detect other players
     public boolean listenForUdpMessage() throws IOException {
-        if (connected) return true;  // Return true if already connected
-
+        if (connected) return true;  // Skip if already connected
+    
+        DatagramSocket udpSocket = null;  // Declare socket here
         try {
-            udpSocket = new DatagramSocket(udpPort);  // Bind to specified UDP port
-            byte[] buffer = new byte[256];  // Buffer for incoming data
+            udpSocket = new DatagramSocket(udpPort);  // Attempt to bind to UDP port
+            byte[] buffer = new byte[256];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
-            udpSocket.setSoTimeout(TIMEOUT);  // Set timeout for receiving packets
+    
+            udpSocket.setSoTimeout(TIMEOUT);  // Set timeout for receiving
             System.out.println(SEPARATOR);
             System.out.println("Listening for 'NEW GAME' messages on UDP port " + udpPort + "...");
-            udpSocket.receive(packet);  // Wait for incoming UDP packet
-
+            udpSocket.receive(packet);  // Wait for UDP packet
+    
             String receivedMessage = new String(packet.getData(), 0, packet.getLength());
             System.out.println("Received message: " + receivedMessage);
-
-            // If message starts with "NEW GAME:", parse and attempt to connect to opponent
+    
+            // If "NEW GAME" message is found, try to connect to opponent
             if (receivedMessage.startsWith("NEW GAME:")) {
                 int opponentTcpPort = Integer.parseInt(receivedMessage.split(":")[1]);
                 String opponentIp = packet.getAddress().getHostAddress();
-
+    
                 System.out.println("Connecting to opponent at " + opponentIp + ":" + opponentTcpPort);
-                startGameAsClient(opponentIp, opponentTcpPort);  // Start as client to connect to opponent
-                return true;  // Opponent found
+                startGameAsClient(opponentIp, opponentTcpPort);
+                return true;  // Successfully connected
             }
         } catch (SocketTimeoutException e) {
-            System.out.println("No 'NEW GAME' message received within " + TIMEOUT / 1000 + " seconds.");
+            // Handle timeout by retrying 
+        } catch (BindException e) {
+            // Catch BindException
+            return false;  // Continue with the process
         } catch (IOException e) {
-            e.printStackTrace();
+            e.printStackTrace();  // Print other IOExceptions
         } finally {
             if (udpSocket != null && !udpSocket.isClosed()) {
-                udpSocket.close();  // Ensure UDP socket is closed after use
+                udpSocket.close();  // Ensure the socket is closed
             }
         }
-        return false;  // Continue matchmaking if no opponent found
+        return false;  // Return false to continue matchmaking
     }
-
+    
     // Starts as a client to connect to the opponent's TCP server
     public void startGameAsClient(String opponentIp, int tcpPort) {
         if (connected) return;  // Exit if already connected
