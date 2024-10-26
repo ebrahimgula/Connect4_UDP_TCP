@@ -59,7 +59,7 @@ public class GameLogic {
         displayBoard();
         System.out.println(SEPARATOR);
         System.out.print("Your turn. Enter column (1-7): ");
-
+    
         int col;
         while (true) {
             try {
@@ -73,63 +73,52 @@ public class GameLogic {
                 System.out.print("Please enter a valid column number (1-7): ");
             }
         }
-
+    
+        // Send the move to the opponent
+        this.out.println("INSERT:" + (col + 1));
+    
+        // If this move results in a win, just display the board and wait for the opponent's "YOU WIN"
         if (checkWin(playerChar)) {
             displayBoard();
             System.out.println(SEPARATOR);
-            System.out.println("You win!");
-            this.out.println("YOU WIN");
-            gameOver();
-        } else {
-            this.out.println("INSERT:" + (col + 1));
+            System.out.println("You win the game! Waiting for opponent confirmation...");
         }
     }
-
-    private void opponentTurn(char opponentChar) {
+    
+    private void opponentTurn(char opponentChar) throws IOException {
         System.out.println(SEPARATOR);
         System.out.println("Waiting for opponent's move...");
+        String receivedMessage = this.in.readLine();
+        if (receivedMessage == null) {
+            System.out.println("Opponent disconnected.");
+            gameOver();
+            return;
+        }
+        if (receivedMessage.startsWith("INSERT:")) {
+            int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
+            if (isValidMove(col)) {
+                makeMove(col, opponentChar);
     
-        try {
-            String receivedMessage = this.in.readLine();
-            if (receivedMessage == null) {
-                System.out.println("Opponent disconnected.");
-                gameOver();
-                return;
-            }
-    
-            if (receivedMessage.startsWith("INSERT:")) {
-                int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
-                if (isValidMove(col)) {
-                    makeMove(col, opponentChar);
-                    if (checkWin(opponentChar)) {
-                        displayBoard();
-                        System.out.println(SEPARATOR);
-                        System.out.println("You lose!");
-                        this.out.println("YOU LOSE");
-                        gameOver();
-                    }
-                } else {
-                    System.out.println("ERROR: Invalid move from opponent.");
-                    this.out.println("ERROR");
+                // If the opponent's move results in their win, send "YOU WIN" back and end the game
+                if (checkWin(opponentChar)) {
+                    displayBoard();
+                    System.out.println(SEPARATOR);
+                    System.out.println("You lose!");
+                    this.out.println("YOU WIN");  // Acknowledge opponent's win
                     gameOver();
                 }
-            } else if (receivedMessage.equals("YOU WIN")) {
-                displayBoard();
-                System.out.println(SEPARATOR);
-                System.out.println("You lose!");
-                gameOver();
             } else {
-                System.out.println("ERROR: Unexpected message from opponent.");
+                System.out.println("ERROR: Invalid move from opponent.");
                 this.out.println("ERROR");
                 gameOver();
             }
-    
-        } catch (SocketException e) {
-            System.err.println("Connection reset by opponent. Opponent may have disconnected.");
+        } else if (receivedMessage.equals("YOU WIN")) {
+            // Opponent has received confirmation of their win
+            System.out.println("Opponent confirmed your win. Game over.");
             gameOver();
-        } catch (IOException e) {
-            System.out.println("ERROR: Connection issue.");
-            e.printStackTrace();
+        } else {
+            System.out.println("ERROR: Unexpected message from opponent.");
+            this.out.println("ERROR");
             gameOver();
         }
     }
@@ -240,6 +229,7 @@ public class GameLogic {
         for (char[] row : board) {
             System.out.print("| ");
             for (char slot : row) {
+
                 if (slot == 'X') {
                     System.out.print(RED + slot + RESET + " | ");
                 } else if (slot == 'O') {
