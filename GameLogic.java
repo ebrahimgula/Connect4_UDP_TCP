@@ -77,23 +77,35 @@ public class GameLogic {
         // Send the move to the opponent
         this.out.println("INSERT:" + (col + 1));
     
-        // If this move results in a win, just display the board and wait for the opponent's "YOU WIN"
+        // If this move results in a win, display board and wait for "YOU WIN" confirmation from opponent
         if (checkWin(playerChar)) {
             displayBoard();
             System.out.println(SEPARATOR);
             System.out.println("You win the game! Waiting for opponent confirmation...");
+    
+            // Wait for "YOU WIN" confirmation from the opponent
+            String confirmation = this.in.readLine();
+            if ("YOU WIN".equals(confirmation)) {
+                System.out.println("Opponent confirmed your win. Game over.");
+                gameOver();  // Close the game only after receiving confirmation
+            } else {
+                System.out.println("ERROR: Unexpected response from opponent.");
+                gameOver();
+            }
         }
     }
     
     private void opponentTurn(char opponentChar) throws IOException {
         System.out.println(SEPARATOR);
         System.out.println("Waiting for opponent's move...");
+    
         String receivedMessage = this.in.readLine();
         if (receivedMessage == null) {
             System.out.println("Opponent disconnected.");
             gameOver();
             return;
         }
+    
         if (receivedMessage.startsWith("INSERT:")) {
             int col = Integer.parseInt(receivedMessage.split(":")[1]) - 1;
             if (isValidMove(col)) {
@@ -122,6 +134,7 @@ public class GameLogic {
             gameOver();
         }
     }
+    
     
     private void gameOver() {
         System.out.println("Thanks for playing!");
